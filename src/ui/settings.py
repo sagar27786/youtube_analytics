@@ -22,6 +22,23 @@ def render_youtube_auth_section():
     
     authenticator = get_authenticator()
     
+    # Check for OAuth callback parameters in URL
+    query_params = st.query_params
+    if "code" in query_params and not st.session_state.get('oauth_processed', False):
+        auth_code = query_params["code"]
+        st.info("🔄 Processing OAuth callback...")
+        
+        with st.spinner("Completing authentication..."):
+            success = authenticator.handle_oauth_callback(auth_code)
+            if success:
+                st.success("✅ Successfully connected to YouTube!")
+                st.session_state['oauth_processed'] = True
+                # Clear the URL parameters by rerunning
+                st.query_params.clear()
+                st.rerun()
+            else:
+                st.error("❌ Failed to complete authentication. Please try again.")
+    
     # Check authentication status
     is_authenticated = authenticator.is_authenticated()
     
