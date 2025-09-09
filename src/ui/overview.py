@@ -313,10 +313,9 @@ def handle_data_refresh():
             start_date = st.session_state.get('overview_start_date', date.today() - timedelta(days=30))
             end_date = st.session_state.get('overview_end_date', date.today())
             
-            result = ingester.ingest_data(
-                start_date=start_date,
-                end_date=end_date
-            )
+            # Calculate date range in days
+            date_range_days = (end_date - start_date).days + 1
+            result = ingester.ingest_channel_data(date_range_days=date_range_days)
             
             if result.success:
                 st.success(f"✅ Data refreshed successfully! Fetched {result.videos_processed} videos and {result.metrics_saved} metrics.")

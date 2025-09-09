@@ -293,10 +293,9 @@ def render_data_ingestion_section():
                 try:
                     with st.spinner("Refreshing data from YouTube..."):
                         ingester = get_ingester()
-                        result = ingester.ingest_data(
-                            start_date=start_date,
-                            end_date=end_date
-                        )
+                        # Calculate date range in days
+                        date_range_days = (end_date - start_date).days + 1
+                        result = ingester.ingest_channel_data(date_range_days=date_range_days)
                         
                         if result.success:
                             st.success(f"✅ Data refreshed successfully!")
