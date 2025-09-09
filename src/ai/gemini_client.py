@@ -18,6 +18,7 @@ from jsonschema import validate, ValidationError
 
 from ..utils.config import get_config
 from ..storage import get_storage_adapter
+from ..database.models import get_db_session, Insight
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -175,6 +176,9 @@ class GeminiClient:
         
     def _configure_gemini(self):
         """Configure Gemini AI client."""
+        if not self.config.gemini_api_key or self.config.gemini_api_key == "your_gemini_api_key_here":
+            raise ValueError("Gemini API key is not configured. Please set GEMINI_API_KEY in your environment variables.")
+        
         genai.configure(api_key=self.config.gemini_api_key)
         
         # Configure safety settings
