@@ -15,7 +15,7 @@ from ..storage import get_storage_adapter
 from ..ai.gemini_client import get_insight_generator
 from ..auth.youtube_auth import get_authenticator
 from ..ingestion.youtube_data import get_ingester
-from ..database.models import get_db_session, VideoMetrics, Insight
+from ..database.models import get_db_session, VideoMetrics, Insight, Video
 
 def format_number(num: float) -> str:
     """Format numbers for display."""
