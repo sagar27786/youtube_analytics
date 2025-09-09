@@ -17,6 +17,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from ..auth.youtube_auth import get_authenticator
 from ..storage import get_storage_adapter
 from ..utils.config import get_config
+from ..database.models import get_db_session, APIQuota, Video, VideoMetrics
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
