@@ -1,0 +1,54 @@
+# Core Streamlit and web framework
+streamlit>=1.28.0
+
+# YouTube API integration
+google-auth-oauthlib>=1.0.0
+google-auth>=2.17.0
+google-api-python-client>=2.88.0
+
+# Gemini AI integration
+google-generativeai>=0.3.0
+
+# Database and ORM (disabled for local storage)
+# sqlalchemy>=2.0.0
+# alembic>=1.12.0
+
+# Data processing and visualization
+pandas>=2.0.0
+plotly>=5.15.0
+numpy>=1.24.0
+
+# HTTP requests and API handling
+requests>=2.31.0
+tenacity>=8.2.0
+
+# Configuration and environment
+python-dotenv>=1.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# JSON schema validation
+jsonschema>=4.17.0
+
+# Encryption for secure token storage
+cryptography>=41.0.0
+
+# Scheduling
+schedule>=1.2.0
+apscheduler>=3.10.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+responses>=0.23.0
+
+# Code quality
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+
+# Utilities
+python-dateutil>=2.8.0
+pytz>=2023.3
+click>=8.1.0
