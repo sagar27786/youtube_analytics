@@ -296,7 +296,7 @@ def render_channel_trends(channel_data: Dict[str, Any]):
     daily_metrics = metrics_df.groupby('date').agg({
         'impressions': 'sum',
         'views': 'sum',
-        'watch_time': 'sum',
+        'watch_time_minutes': 'sum',
         'likes': 'sum',
         'comments': 'sum',
         'subscribers_gained': 'sum',
