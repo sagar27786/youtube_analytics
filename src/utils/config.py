@@ -16,15 +16,15 @@ class Config(BaseSettings):
     """Application configuration settings."""
     
     # YouTube API Configuration
-    youtube_client_id: str = Field(..., env="YOUTUBE_CLIENT_ID")
-    youtube_client_secret: str = Field(..., env="YOUTUBE_CLIENT_SECRET")
+    youtube_client_id: str = Field(default="your_youtube_client_id_here", env="YOUTUBE_CLIENT_ID")
+    youtube_client_secret: str = Field(default="your_youtube_client_secret_here", env="YOUTUBE_CLIENT_SECRET")
     youtube_redirect_uri: str = Field(
         default="http://localhost:8080/oauth2callback",
         env="YOUTUBE_REDIRECT_URI"
     )
     
     # Gemini AI Configuration
-    gemini_api_key: str = Field(..., env="GEMINI_API_KEY")
+    gemini_api_key: str = Field(default="your_gemini_api_key_here", env="GEMINI_API_KEY")
     
     # Database Configuration
     database_url: str = Field(
@@ -35,7 +35,7 @@ class Config(BaseSettings):
     local_storage_dir: str = Field(default="data", env="LOCAL_STORAGE_DIR")
     
     # Application Configuration
-    app_secret_key: str = Field(..., env="APP_SECRET_KEY")
+    app_secret_key: str = Field(default="your_app_secret_key_here", env="APP_SECRET_KEY")
     debug: bool = Field(default=False, env="DEBUG")
     log_level: str = Field(default="INFO", env="LOG_LEVEL")
     
@@ -73,7 +73,7 @@ class Config(BaseSettings):
         return not self.debug
     
     def validate_required_settings(self) -> bool:
-        """Validate that all required settings are present."""
+        """Validate that all required settings are configured."""
         required_fields = [
             "youtube_client_id",
             "youtube_client_secret",
@@ -88,10 +88,16 @@ class Config(BaseSettings):
                 missing_fields.append(field.upper())
         
         if missing_fields:
-            raise ValueError(
-                f"Missing required configuration: {', '.join(missing_fields)}. "
-                "Please check your .env file."
-            )
+            # In cloud environments, just warn instead of raising error
+            import os
+            if os.getenv('STREAMLIT_SHARING') or os.getenv('STREAMLIT_CLOUD'):
+                print(f"Warning: Missing configuration: {', '.join(missing_fields)}. Some features may not work.")
+                return False
+            else:
+                raise ValueError(
+                    f"Missing required configuration: {', '.join(missing_fields)}. "
+                    "Please check your .env file."
+                )
         
         return True
 
