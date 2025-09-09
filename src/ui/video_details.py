@@ -13,6 +13,7 @@ from typing import Dict, Any, Optional, List
 from ..storage import get_storage_adapter
 from ..ai.gemini_client import get_insight_generator
 from ..auth.youtube_auth import get_authenticator
+from ..database.models import get_db_session
 
 def format_number(num: float) -> str:
     """Format numbers for display."""
