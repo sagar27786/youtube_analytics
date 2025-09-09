@@ -63,8 +63,8 @@ def get_channel_summary(start_date: date, end_date: date) -> Dict[str, Any]:
         total_impressions = metrics_df['impressions'].sum()
         total_views = metrics_df['views'].sum()
         avg_ctr = (total_views / total_impressions * 100) if total_impressions > 0 else 0
-        avg_view_duration = metrics_df['avg_view_duration'].mean()
-        total_watch_time = metrics_df['watch_time'].sum()
+        avg_view_duration = metrics_df['average_view_duration_seconds'].mean()
+        total_watch_time = metrics_df['watch_time_minutes'].sum()
         total_likes = metrics_df['likes'].sum()
         total_comments = metrics_df['comments'].sum()
         total_shares = metrics_df['shares'].sum()
@@ -76,8 +76,8 @@ def get_channel_summary(start_date: date, end_date: date) -> Dict[str, Any]:
         video_performance = metrics_df.groupby('video_id').agg({
             'impressions': 'sum',
             'views': 'sum',
-            'watch_time': 'sum',
-            'avg_view_duration': 'mean',
+            'watch_time_minutes': 'sum',
+            'average_view_duration_seconds': 'mean',
             'likes': 'sum',
             'comments': 'sum'
         }).reset_index()
@@ -100,8 +100,8 @@ def get_channel_summary(start_date: date, end_date: date) -> Dict[str, Any]:
                 "impressions": int(row['impressions']),
                 "views": int(row['views']),
                 "ctr": float(row['ctr']),
-                "watch_time": int(row['watch_time']),
-                "avg_view_duration": float(row['avg_view_duration']),
+                "watch_time": int(row['watch_time_minutes'] * 60),  # Convert minutes to seconds
+                "avg_view_duration": float(row['average_view_duration_seconds']),
                 "likes": int(row['likes']),
                 "comments": int(row['comments'])
             })
@@ -114,7 +114,7 @@ def get_channel_summary(start_date: date, end_date: date) -> Dict[str, Any]:
                 'views': int(total_views),
                 'ctr': float(avg_ctr),
                 'avg_view_duration_sec': float(avg_view_duration),
-                'watch_time': int(total_watch_time),
+                'watch_time': int(total_watch_time * 60),  # Convert minutes to seconds for format_duration
                 'likes': int(total_likes),
                 'comments': int(total_comments),
                 'shares': int(total_shares),
