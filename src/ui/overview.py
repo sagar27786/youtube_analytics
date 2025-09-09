@@ -14,6 +14,20 @@ from ..storage import get_storage_adapter
 from ..ingestion.youtube_data import get_ingester
 from ..ai.gemini_client import get_insight_generator
 from ..auth.youtube_auth import get_authenticator
+from ..database.models import get_db_session, Video, VideoMetrics
+import numpy as np
+
+def convert_numpy_types(obj):
+    """Convert numpy types to native Python types."""
+    if isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(item) for item in obj]
+    return obj
 
 def format_number(num: float) -> str:
     """Format numbers for display."""
@@ -39,25 +53,16 @@ def format_duration(seconds: float) -> str:
 
 def get_date_range_data(start_date: date, end_date: date) -> Dict[str, Any]:
     """Get aggregated data for the specified date range."""
-    storage = get_storage_adapter()
+    session = get_db_session()
     
     try:
-        # Get all video metrics from storage
-        all_metrics = []
-        all_videos = storage.get_all_videos()
+        # Get all video metrics from database
+        metrics = session.query(VideoMetrics).filter(
+            VideoMetrics.date >= start_date,
+            VideoMetrics.date <= end_date
+        ).all()
         
-        for video in all_videos:
-            metrics = storage.get_video_metrics(video['video_id'])
-            if metrics and metrics.get('date_recorded'):
-                # Parse date and filter by range
-                try:
-                    metric_date = datetime.fromisoformat(metrics['date_recorded']).date()
-                    if start_date <= metric_date <= end_date:
-                        all_metrics.append(metrics)
-                except (ValueError, TypeError):
-                    continue
-        
-        if not all_metrics:
+        if not metrics:
             return {
                 'total_impressions': 0,
                 'total_views': 0,
@@ -74,40 +79,77 @@ def get_date_range_data(start_date: date, end_date: date) -> Dict[str, Any]:
             }
         
         # Convert to DataFrame for easier processing
-        metrics_df = pd.DataFrame(all_metrics)
+        data = []
+        for metric in metrics:
+            data.append({
+                'date': metric.date,
+                'video_id': metric.video_id,
+                'impressions': metric.impressions,
+                'views': metric.views,
+                'watch_time_minutes': metric.watch_time_minutes,
+                'average_view_duration_seconds': metric.average_view_duration_seconds,
+                'likes': metric.likes,
+                'comments': metric.comments,
+                'shares': metric.shares,
+                'subscribers_gained': metric.subscribers_gained,
+                'subscribers_lost': metric.subscribers_lost
+            })
         
-        # Calculate aggregated metrics
-        total_views = metrics_df['views'].sum()
-        total_watch_time = metrics_df['watch_time_minutes'].sum()
-        total_likes = metrics_df['likes'].sum()
-        total_comments = metrics_df['comments'].sum()
-        total_shares = metrics_df['shares'].sum()
-        avg_view_duration = metrics_df['average_view_duration'].mean()
-        avg_ctr = metrics_df['click_through_rate'].mean()
-        net_subscribers = metrics_df['subscriber_gain'].sum()
-        video_count = metrics_df['video_id'].nunique()
+        metrics_df = pd.DataFrame(data)
         
-        # Create daily metrics (simplified for local storage)
-        metrics_df['date'] = pd.to_datetime(metrics_df['date_recorded']).dt.date
+        # Calculate aggregated metrics (convert to Python types)
+        total_impressions = int(metrics_df['impressions'].sum())
+        total_views = int(metrics_df['views'].sum())
+        total_watch_time = float(metrics_df['watch_time_minutes'].sum())
+        total_likes = int(metrics_df['likes'].sum())
+        total_comments = int(metrics_df['comments'].sum())
+        total_shares = int(metrics_df['shares'].sum())
+        avg_view_duration = float(metrics_df['average_view_duration_seconds'].mean())
+        avg_ctr = float((total_views / total_impressions * 100) if total_impressions > 0 else 0)
+        net_subscribers = int(metrics_df['subscribers_gained'].sum() - metrics_df['subscribers_lost'].sum())
+        video_count = int(metrics_df['video_id'].nunique())
+        
+        # Calculate daily metrics
         daily_metrics = metrics_df.groupby('date').agg({
+            'impressions': 'sum',
             'views': 'sum',
             'watch_time_minutes': 'sum',
             'likes': 'sum',
             'comments': 'sum'
         }).reset_index()
         
+        # Calculate CTR for daily metrics
+        daily_metrics['ctr'] = (daily_metrics['views'] / daily_metrics['impressions'] * 100).fillna(0)
+        
         # Top performing videos
         video_performance = metrics_df.groupby('video_id').agg({
+            'impressions': 'sum',
             'views': 'sum',
             'watch_time_minutes': 'sum',
-            'average_view_duration': 'mean'
+            'average_view_duration_seconds': 'mean'
         }).reset_index()
         
-        # Get video details and merge
+        # Calculate CTR for video performance
+        video_performance['ctr'] = (video_performance['views'] / video_performance['impressions'] * 100).fillna(0)
+        
+        # Rename columns to match expected format
+        video_performance = video_performance.rename(columns={
+            'watch_time_minutes': 'watch_time',
+            'average_view_duration_seconds': 'avg_view_duration'
+        })
+        
+        # Get video details from database
+        videos = session.query(Video).filter(
+            Video.video_id.in_(video_performance['video_id'].tolist())
+        ).all()
+        
         videos_data = []
-        for video in all_videos:
-            if video['video_id'] in video_performance['video_id'].values:
-                videos_data.append(video)
+        for video in videos:
+            videos_data.append({
+                'video_id': video.video_id,
+                'title': video.title,
+                'published_at': video.published_at
+            })
         
         videos_df = pd.DataFrame(videos_data)
         
@@ -117,8 +159,8 @@ def get_date_range_data(start_date: date, end_date: date) -> Dict[str, Any]:
         else:
             top_videos = pd.DataFrame()
         
-        return {
-            'total_impressions': total_views,  # Using views as impressions for simplicity
+        result = {
+            'total_impressions': total_impressions,
             'total_views': total_views,
             'avg_ctr': avg_ctr,
             'avg_view_duration': avg_view_duration,
@@ -132,53 +174,75 @@ def get_date_range_data(start_date: date, end_date: date) -> Dict[str, Any]:
             'top_videos': top_videos
         }
         
+        # Convert all numpy types to native Python types
+        return convert_numpy_types(result)
+        
     except Exception as e:
-        st.error(f"Error fetching data: {e}")
-        return {}
+        st.error(f"Error loading overview data: {e}")
+        error_result = {
+            'total_impressions': 0,
+            'total_views': 0,
+            'avg_ctr': 0,
+            'avg_view_duration': 0,
+            'total_watch_time': 0,
+            'total_likes': 0,
+            'total_comments': 0,
+            'total_shares': 0,
+            'net_subscribers': 0,
+            'video_count': 0,
+            'daily_metrics': pd.DataFrame(),
+            'top_videos': pd.DataFrame()
+        }
+        return convert_numpy_types(error_result)
+    finally:
+        session.close()
 
 def render_kpi_cards(data: Dict[str, Any]):
     """Render KPI cards."""
+    # Ensure all data is converted from numpy types
+    data = convert_numpy_types(data)
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.metric(
             label="📊 Total Impressions",
-            value=format_number(data.get('total_impressions', 0))
+            value=format_number(int(data.get('total_impressions', 0)))
         )
         st.metric(
             label="👀 Total Views",
-            value=format_number(data.get('total_views', 0))
+            value=format_number(int(data.get('total_views', 0)))
         )
     
     with col2:
         st.metric(
             label="🎯 Average CTR",
-            value=f"{data.get('avg_ctr', 0):.2f}%"
+            value=f"{float(data.get('avg_ctr', 0)):.2f}%"
         )
         st.metric(
             label="⏱️ Avg View Duration",
-            value=format_duration(data.get('avg_view_duration', 0))
+            value=format_duration(float(data.get('avg_view_duration', 0)))
         )
     
     with col3:
         st.metric(
             label="⏰ Total Watch Time",
-            value=format_duration(data.get('total_watch_time', 0))
+            value=format_duration(float(data.get('total_watch_time', 0)))
         )
         st.metric(
             label="👍 Total Likes",
-            value=format_number(data.get('total_likes', 0))
+            value=format_number(int(data.get('total_likes', 0)))
         )
     
     with col4:
         st.metric(
             label="💬 Total Comments",
-            value=format_number(data.get('total_comments', 0))
+            value=format_number(int(data.get('total_comments', 0)))
         )
+        net_subs = int(data.get('net_subscribers', 0))
         st.metric(
             label="📈 Net Subscribers",
-            value=f"+{data.get('net_subscribers', 0):,}" if data.get('net_subscribers', 0) >= 0 else f"{data.get('net_subscribers', 0):,}",
-            delta=data.get('net_subscribers', 0)
+            value=f"+{net_subs:,}" if net_subs >= 0 else f"{net_subs:,}",
+            delta=net_subs
         )
 
 def render_charts(data: Dict[str, Any]):
@@ -393,19 +457,19 @@ def render_overview_page():
         col1, col2 = st.columns(2)
         
         with col1:
-            avg_views_per_video = data['total_views'] / data['video_count']
+            avg_views_per_video = float(data['total_views']) / float(data['video_count'])
             st.info(f"📊 **Average views per video:** {format_number(avg_views_per_video)}")
             
-            engagement_rate = ((data['total_likes'] + data['total_comments']) / data['total_views'] * 100) if data['total_views'] > 0 else 0
+            engagement_rate = float(((data['total_likes'] + data['total_comments']) / data['total_views'] * 100) if data['total_views'] > 0 else 0)
             st.info(f"💬 **Engagement rate:** {engagement_rate:.2f}%")
         
         with col2:
             if data['total_impressions'] > 0:
-                reach_efficiency = data['total_views'] / data['total_impressions'] * 100
+                reach_efficiency = float(data['total_views']) / float(data['total_impressions']) * 100
                 st.info(f"🎯 **Reach efficiency:** {reach_efficiency:.2f}%")
             
             if data['total_watch_time'] > 0 and data['total_views'] > 0:
-                avg_session_duration = data['total_watch_time'] / data['total_views']
+                avg_session_duration = float(data['total_watch_time']) / float(data['total_views'])
                 st.info(f"⏰ **Avg session duration:** {format_duration(avg_session_duration)}")
 
 if __name__ == "__main__":

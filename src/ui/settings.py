@@ -327,8 +327,6 @@ def render_data_ingestion_section():
         with col3:
             st.metric("Estimated Remaining", "10,000")  # Simplified for local storage
         
-        session.close()
-        
     except Exception as e:
         st.warning(f"Could not fetch quota information: {e}")
 
@@ -421,12 +419,7 @@ def render_export_import_section():
                 storage = get_storage_adapter()
                 
                 # Get all video metrics
-                all_videos = storage.get_all_videos()
-                metrics_data = []
-                for video in all_videos:
-                    metrics = storage.get_video_metrics(video['video_id'])
-                    if metrics:
-                        metrics_data.append(metrics)
+                metrics_data = storage.get_all_video_metrics()
                 
                 if metrics_data:
                     metrics_df = pd.DataFrame(metrics_data)

@@ -445,10 +445,33 @@ def render_video_details_page():
     video_id = st.session_state.get('selected_video_id')
     
     if not video_id:
-        st.warning("No video selected. Please go back to the Videos page and select a video.")
-        if st.button("← Back to Videos"):
-            st.session_state['current_page'] = 'videos'
-            st.rerun()
+        st.warning("📹 No video selected")
+        
+        st.markdown("""
+        ### How to select a video:
+        
+        1. **Go to the Videos page** using the sidebar navigation
+        2. **Browse your videos** in the table
+        3. **Click the "📊 Details" button** next to any video you want to analyze
+        4. **You'll be automatically redirected** to this page with the selected video
+        
+        💡 **Tip**: You can also use the search and filter options on the Videos page to find specific videos quickly.
+        """)
+        
+        # Debug information (can be removed in production)
+        with st.expander("🔧 Debug Information", expanded=False):
+            st.write("**Current session state:**")
+            st.json({
+                'current_page': st.session_state.get('current_page', 'Not set'),
+                'selected_video_id': st.session_state.get('selected_video_id', 'Not set'),
+                'all_session_keys': list(st.session_state.keys())
+            })
+        
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🔍 Go to Videos Page", use_container_width=True):
+                st.session_state['current_page'] = 'videos'
+                st.rerun()
         return
     
     # Back button

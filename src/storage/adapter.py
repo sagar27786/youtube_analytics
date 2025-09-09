@@ -128,6 +128,17 @@ class StorageAdapter:
             metrics = self._db_session.query(VideoMetrics).filter(VideoMetrics.video_id == video_id).first()
             return metrics.__dict__ if metrics else None
     
+    def get_all_video_metrics(self) -> List[Dict[str, Any]]:
+        """Get all video metrics."""
+        if self.is_local_storage:
+            metrics = self._storage.get_all_video_metrics()
+            return [metric.__dict__ for metric in metrics]
+        else:
+            # Database implementation
+            from ..database.models import VideoMetrics
+            metrics = self._db_session.query(VideoMetrics).all()
+            return [metric.__dict__ for metric in metrics]
+    
     # Channel metrics operations
     def save_channel_metrics(self, metrics_data: Dict[str, Any]) -> None:
         """Save channel metrics."""

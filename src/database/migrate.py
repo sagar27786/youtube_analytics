@@ -69,19 +69,27 @@ def load_sample_data():
             }
         ]
         
-        # Insert videos
+        # Insert videos (handle duplicates)
         for video_data in sample_videos:
-            video = Video(
-                video_id=video_data["video_id"],
-                channel_id=channel_id,
-                title=video_data["title"],
-                description=video_data["description"],
-                published_at=video_data["published_at"],
-                duration_seconds=video_data["duration_seconds"],
-                tags=video_data["tags"],
-                thumbnail_url=f"https://i.ytimg.com/vi/{video_data['video_id']}/maxresdefault.jpg"
-            )
-            session.add(video)
+            # Check if video already exists
+            existing_video = session.query(Video).filter(
+                Video.video_id == video_data["video_id"]
+            ).first()
+            
+            if not existing_video:
+                video = Video(
+                    video_id=video_data["video_id"],
+                    channel_id=channel_id,
+                    title=video_data["title"],
+                    description=video_data["description"],
+                    published_at=video_data["published_at"],
+                    duration_seconds=video_data["duration_seconds"],
+                    tags=video_data["tags"],
+                    thumbnail_url=f"https://i.ytimg.com/vi/{video_data['video_id']}/maxresdefault.jpg"
+                )
+                session.add(video)
+            else:
+                print(f"Video {video_data['video_id']} already exists, skipping...")
         
         # Create sample metrics for the last 30 days
         for video_data in sample_videos:
@@ -96,20 +104,27 @@ def load_sample_data():
             base_impressions = base_views * random.randint(5, 15)
             
             while current_date <= today:
-                # Simulate realistic growth patterns
-                days_since_publish = (current_date - published_date).days
-                decay_factor = max(0.1, 1 - (days_since_publish * 0.05))
+                # Check if metrics already exist for this video and date
+                existing_metrics = session.query(VideoMetrics).filter(
+                    VideoMetrics.video_id == video_id,
+                    VideoMetrics.date == current_date
+                ).first()
                 
-                views = int(base_views * decay_factor * random.uniform(0.8, 1.2))
-                impressions = int(base_impressions * decay_factor * random.uniform(0.9, 1.1))
-                
-                metrics = VideoMetrics(
-                    video_id=video_id,
-                    date=current_date,
-                    impressions=impressions,
-                    impressions_ctr=random.uniform(0.03, 0.12),
-                    views=views,
-                    unique_viewers=int(views * random.uniform(0.7, 0.95)),
+                if not existing_metrics:
+                    # Simulate realistic growth patterns
+                    days_since_publish = (current_date - published_date).days
+                    decay_factor = max(0.1, 1 - (days_since_publish * 0.05))
+                    
+                    views = int(base_views * decay_factor * random.uniform(0.8, 1.2))
+                    impressions = int(base_impressions * decay_factor * random.uniform(0.9, 1.1))
+                    
+                    metrics = VideoMetrics(
+                        video_id=video_id,
+                        date=current_date,
+                        impressions=impressions,
+                        impressions_ctr=random.uniform(0.03, 0.12),
+                        views=views,
+                        unique_viewers=int(views * random.uniform(0.7, 0.95)),
                     average_view_duration_seconds=random.uniform(120, 400),
                     watch_time_minutes=views * random.uniform(2, 8),
                     likes=int(views * random.uniform(0.02, 0.08)),
@@ -130,30 +145,41 @@ def load_sample_data():
                     }
                 )
                 
-                # Calculate derived metrics
-                metrics.calculate_derived_metrics(video_data["duration_seconds"])
-                session.add(metrics)
+                    # Calculate derived metrics
+                    metrics.calculate_derived_metrics(video_data["duration_seconds"])
+                    session.add(metrics)
+                else:
+                    print(f"Metrics for video {video_id} on {current_date} already exist, skipping...")
                 
                 current_date += timedelta(days=1)
         
-        # Create sample channel metrics
+        # Create sample channel metrics (handle duplicates)
         current_date = date.today() - timedelta(days=30)
         today = date.today()
         
         while current_date <= today:
-            channel_metrics = ChannelMetrics(
-                channel_id=channel_id,
-                date=current_date,
-                total_views=random.randint(50000, 100000),
-                total_impressions=random.randint(200000, 500000),
-                total_watch_time_minutes=random.randint(10000, 30000),
-                subscriber_count=random.randint(5000, 15000),
-                video_count=len(sample_videos),
-                views_gained=random.randint(100, 1000),
-                subscribers_gained=random.randint(10, 50),
-                subscribers_lost=random.randint(0, 20)
-            )
-            session.add(channel_metrics)
+            # Check if channel metrics already exist for this date
+            existing_metrics = session.query(ChannelMetrics).filter(
+                ChannelMetrics.channel_id == channel_id,
+                ChannelMetrics.date == current_date
+            ).first()
+            
+            if not existing_metrics:
+                channel_metrics = ChannelMetrics(
+                    channel_id=channel_id,
+                    date=current_date,
+                    total_views=random.randint(50000, 100000),
+                    total_impressions=random.randint(200000, 500000),
+                    total_watch_time_minutes=random.randint(10000, 30000),
+                    subscriber_count=random.randint(5000, 15000),
+                    video_count=len(sample_videos),
+                    views_gained=random.randint(100, 1000),
+                    subscribers_gained=random.randint(10, 50),
+                    subscribers_lost=random.randint(0, 20)
+                )
+                session.add(channel_metrics)
+            else:
+                print(f"Channel metrics already exist for {current_date}, skipping...")
             current_date += timedelta(days=1)
         
         # Create sample insights
@@ -187,27 +213,46 @@ def load_sample_data():
         ]
         
         for insight_data in sample_insights:
-            insight = Insight(
-                video_id=insight_data["video_id"],
-                channel_id=channel_id,
-                insight_type=insight_data["insight_type"],
-                action_type=insight_data["action_type"],
-                priority=insight_data["priority"],
-                confidence=insight_data["confidence"],
-                rationale=insight_data["rationale"],
-                payload_json=insight_data["payload_json"]
-            )
-            session.add(insight)
+            # Check if insight already exists
+            existing_insight = session.query(Insight).filter(
+                Insight.video_id == insight_data["video_id"],
+                Insight.channel_id == channel_id,
+                Insight.insight_type == insight_data["insight_type"],
+                Insight.action_type == insight_data["action_type"]
+            ).first()
+            
+            if not existing_insight:
+                insight = Insight(
+                    video_id=insight_data["video_id"],
+                    channel_id=channel_id,
+                    insight_type=insight_data["insight_type"],
+                    action_type=insight_data["action_type"],
+                    priority=insight_data["priority"],
+                    confidence=insight_data["confidence"],
+                    rationale=insight_data["rationale"],
+                    payload_json=insight_data["payload_json"]
+                )
+                session.add(insight)
+            else:
+                print(f"Insight for {insight_data['insight_type']} {insight_data['action_type']} already exists, skipping...")
         
-        # Create API quota tracking
+        # Create API quota tracking (handle duplicates)
         today = date.today()
-        api_quota = APIQuota(
-            api_name="youtube_data",
-            date=today,
-            quota_used=1500,
-            quota_limit=10000
-        )
-        session.add(api_quota)
+        existing_quota = session.query(APIQuota).filter(
+            APIQuota.api_name == "youtube_data",
+            APIQuota.date == today
+        ).first()
+        
+        if not existing_quota:
+            api_quota = APIQuota(
+                api_name="youtube_data",
+                date=today,
+                quota_used=1500,
+                quota_limit=10000
+            )
+            session.add(api_quota)
+        else:
+            print("API quota entry already exists for today, skipping...")
         
         session.commit()
         print("✅ Sample data loaded successfully!")
